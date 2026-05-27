@@ -66,7 +66,7 @@ class MCPClient extends EventEmitter {
       this.request('initialize', {
         protocolVersion: '2024-11-05',
         capabilities: {},
-        clientInfo: { name: 'paco-asistente', version: '1.0.0' }
+        clientInfo: { name: 'mayormono', version: '1.0.0' }
       })
         .then(() => {
           this.notify('notifications/initialized', {})
@@ -179,7 +179,7 @@ async function initMCP() {
     const tools = await mcpClient.connect(getBundledBin('microsoft-365-mcp'))
     mcpTools = tools
     console.log(`[MCP] Connected — ${tools.length} tools`)
-    mainWindow?.webContents.send('paco:tools-updated', tools.map((t) => t.name))
+    mainWindow?.webContents.send('mm:tools-updated', tools.map((t) => t.name))
   } catch (e) {
     console.warn('[MCP] Not available:', e.message)
     mcpTools = []
@@ -247,22 +247,22 @@ app.on('activate', () => {
 
 // ─── IPC ─────────────────────────────────────────────────────────────────────
 
-ipcMain.handle('paco:get-settings', () => loadSettings())
+ipcMain.handle('mm:get-settings', () => loadSettings())
 
-ipcMain.handle('paco:save-settings', (_, settings) => {
+ipcMain.handle('mm:save-settings', (_, settings) => {
   saveSettings(settings)
   initAnthropic(settings)
   return { ok: true }
 })
 
-ipcMain.handle('paco:clear-chat', () => {
+ipcMain.handle('mm:clear-chat', () => {
   conversationHistory = []
   return { ok: true }
 })
 
-ipcMain.handle('paco:get-tools', () => mcpTools.map((t) => t.name))
+ipcMain.handle('mm:get-tools', () => mcpTools.map((t) => t.name))
 
-ipcMain.handle('paco:auth-m365', () => {
+ipcMain.handle('mm:auth-m365', () => {
   return new Promise((resolve) => {
     const homedir = os.homedir()
     const extraPaths = [
@@ -283,10 +283,26 @@ ipcMain.handle('paco:auth-m365', () => {
   })
 })
 
-ipcMain.handle('paco:send-message', async (_event, text) => {
+ipcMain.handle('mm:get-m365-user', () => {
+  return new Promise((resolve) => {
+    let output = ''
+    const proc = spawn(getBundledBin('microsoft-365-mcp-whoami'), [], { stdio: 'pipe' })
+    proc.stdout.on('data', (d) => { output += d.toString() })
+    proc.on('close', (code) => {
+      if (code === 0) {
+        try { resolve(JSON.parse(output.trim())) } catch (_) { resolve(null) }
+      } else {
+        resolve(null)
+      }
+    })
+    proc.on('error', () => resolve(null))
+  })
+})
+
+ipcMain.handle('mm:send-message', async (_event, text) => {
   if (!anthropicClient) {
     mainWindow.webContents.send(
-      'paco:stream-error',
+      'mm:stream-error',
       'No hay API Key configurada. Ve a Configuración para añadirla.'
     )
     return
@@ -330,7 +346,7 @@ Fecha y hora actual: ${new Date().toLocaleString('es-ES', { timeZone: 'Europe/Ma
         for (const block of textBlocks) {
           const words = block.text.split(' ')
           for (let i = 0; i < words.length; i++) {
-            mainWindow.webContents.send('paco:stream-chunk', (i === 0 ? '' : ' ') + words[i])
+            mainWindow.webContents.send('mm:stream-chunk', (i === 0 ? '' : ' ') + words[i])
             await new Promise((r) => setTimeout(r, 15))
           }
         }
@@ -347,14 +363,14 @@ Fecha y hora actual: ${new Date().toLocaleString('es-ES', { timeZone: 'Europe/Ma
 
       const toolResults = []
       for (const toolUse of toolUseBlocks) {
-        mainWindow.webContents.send('paco:stream-tool-use', { type: 'calling', name: toolUse.name })
+        mainWindow.webContents.send('mm:stream-tool-use', { type: 'calling', name: toolUse.name })
         try {
           const result = await mcpClient.callTool(toolUse.name, toolUse.input)
           const resultText = Array.isArray(result.content)
             ? result.content.map((c) => c.text || JSON.stringify(c)).join('\n')
             : JSON.stringify(result)
           toolResults.push({ type: 'tool_result', tool_use_id: toolUse.id, content: resultText })
-          mainWindow.webContents.send('paco:stream-tool-use', { type: 'done', name: toolUse.name })
+          mainWindow.webContents.send('mm:stream-tool-use', { type: 'done', name: toolUse.name })
         } catch (e) {
           toolResults.push({
             type: 'tool_result',
@@ -368,10 +384,10 @@ Fecha y hora actual: ${new Date().toLocaleString('es-ES', { timeZone: 'Europe/Ma
       workingMessages.push({ role: 'user', content: toolResults })
     }
 
-    mainWindow.webContents.send('paco:stream-done', {})
+    mainWindow.webContents.send('mm:stream-done', {})
   } catch (e) {
     console.error('[Claude]', e)
-    mainWindow.webContents.send('paco:stream-error', e.message)
+    mainWindow.webContents.send('mm:stream-error', e.message)
     conversationHistory.pop()
   }
 })

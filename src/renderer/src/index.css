@@ -126,7 +126,7 @@ html, body, #root { height: 100%; overflow: hidden; }
   text-align: center;
 }
 
-.paco-icon-wrap {
+.mm-icon-wrap {
   margin-bottom: 20px;
   filter: drop-shadow(0 0 24px rgba(192,38,211,0.6));
   animation: float 3s ease-in-out infinite;
@@ -239,7 +239,7 @@ html, body, #root { height: 100%; overflow: hidden; }
 }
 
 .msg-user { align-self: flex-end; flex-direction: row-reverse; }
-.msg-paco { align-self: flex-start; }
+.msg-mm { align-self: flex-start; }
 
 .msg-avatar {
   width: 28px;
@@ -272,7 +272,7 @@ html, body, #root { height: 100%; overflow: hidden; }
   box-shadow: 0 2px 12px rgba(109,40,217,0.4);
 }
 
-.bubble-paco {
+.bubble-mm {
   background: rgba(255,255,255,0.07);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255,255,255,0.1);

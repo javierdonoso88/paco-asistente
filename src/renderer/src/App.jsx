@@ -3,7 +3,7 @@ import { marked } from 'marked'
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
-function PacoLogo() {
+function MayormonoLogo() {
   return (
     <svg width="88" height="88" viewBox="0 0 88 88" fill="none" xmlns="http://www.w3.org/2000/svg">
       <defs>
@@ -60,9 +60,9 @@ function Message({ msg }) {
   const isUser = msg.role === 'user'
   const html = isUser ? null : marked.parse(msg.content || '')
   return (
-    <div className={`msg-row ${isUser ? 'msg-user' : 'msg-paco'}`}>
+    <div className={`msg-row ${isUser ? 'msg-user' : 'msg-mm'}`}>
       {!isUser && <div className="msg-avatar">M</div>}
-      <div className={`msg-bubble ${isUser ? 'bubble-user' : 'bubble-paco'} ${msg.isError ? 'bubble-error' : ''}`}>
+      <div className={`msg-bubble ${isUser ? 'bubble-user' : 'bubble-mm'} ${msg.isError ? 'bubble-error' : ''}`}>
         {isUser
           ? <span className="msg-text">{msg.content}</span>
           : <div className="msg-text msg-markdown" dangerouslySetInnerHTML={{ __html: html }} />}
@@ -106,14 +106,14 @@ function Onboarding({ onComplete }) {
 
   const handleAuth = async () => {
     setAuthState('loading')
-    const result = await window.pacoAPI?.authM365()
+    const result = await window.mayormonoAPI?.authM365()
     setAuthState(result?.ok ? 'done' : 'error')
   }
 
   return (
     <div className="onboarding">
       <div className="onboarding-card">
-        <div className="onboarding-logo"><PacoLogo /></div>
+        <div className="onboarding-logo"><MayormonoLogo /></div>
         <h1 className="onboarding-title">Bienvenido a Mayormono</h1>
 
         {step === 0 && (
@@ -233,6 +233,7 @@ export default function App() {
   const [settings, setSettings] = useState({ userName: '', model: 'claude-sonnet-4-5' })
   const [showSettings, setShowSettings] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
+  const [m365User, setM365User] = useState(null)
   const [tools, setTools] = useState([])
   const [streamText, setStreamText] = useState('')
   const [toolStatus, setToolStatus] = useState('')
@@ -242,26 +243,27 @@ export default function App() {
   const streamRef = useRef('')
 
   useEffect(() => {
-    if (!window.pacoAPI) return
+    if (!window.mayormonoAPI) return
 
-    window.pacoAPI.getSettings().then((s) => {
+    window.mayormonoAPI.getSettings().then((s) => {
       setSettings(s)
       if (s.firstRun) setShowOnboarding(true)
       else if (!s.apiKey) setShowSettings(true)
     })
-    window.pacoAPI.getTools().then(setTools)
+    window.mayormonoAPI.getTools().then(setTools)
+    window.mayormonoAPI.getM365User().then((u) => { if (u) setM365User(u) })
 
-    window.pacoAPI.onStreamChunk((chunk) => {
+    window.mayormonoAPI.onStreamChunk((chunk) => {
       streamRef.current += chunk
       setStreamText(streamRef.current)
     })
 
-    window.pacoAPI.onStreamToolUse((data) => {
+    window.mayormonoAPI.onStreamToolUse((data) => {
       if (data.type === 'calling') setToolStatus(data.name)
       else if (data.type === 'done') setToolStatus('')
     })
 
-    window.pacoAPI.onStreamDone(() => {
+    window.mayormonoAPI.onStreamDone(() => {
       const text = streamRef.current
       if (text) {
         setMessages((prev) => [...prev, { role: 'assistant', content: text }])
@@ -272,7 +274,7 @@ export default function App() {
       setIsLoading(false)
     })
 
-    window.pacoAPI.onStreamError((err) => {
+    window.mayormonoAPI.onStreamError((err) => {
       setMessages((prev) => [...prev, { role: 'assistant', content: `⚠️ ${err}`, isError: true }])
       streamRef.current = ''
       setStreamText('')
@@ -280,11 +282,11 @@ export default function App() {
       setIsLoading(false)
     })
 
-    window.pacoAPI.onToolsUpdated(setTools)
+    window.mayormonoAPI.onToolsUpdated(setTools)
 
     return () => {
-      ;['paco:stream-chunk', 'paco:stream-tool-use', 'paco:stream-done', 'paco:stream-error', 'paco:tools-updated'].forEach(
-        (ch) => window.pacoAPI.removeAllListeners(ch)
+      ;['mm:stream-chunk', 'mm:stream-tool-use', 'mm:stream-done', 'mm:stream-error', 'mm:tools-updated'].forEach(
+        (ch) => window.mayormonoAPI.removeAllListeners(ch)
       )
     }
   }, [])
@@ -300,26 +302,26 @@ export default function App() {
       setInputText('')
       setIsLoading(true)
       streamRef.current = ''
-      await window.pacoAPI?.sendMessage(text)
+      await window.mayormonoAPI?.sendMessage(text)
     },
     [isLoading]
   )
 
   const clearChat = async () => {
-    await window.pacoAPI?.clearChat()
+    await window.mayormonoAPI?.clearChat()
     setMessages([])
     streamRef.current = ''
     setStreamText('')
   }
 
   const completeOnboarding = async (form) => {
-    await window.pacoAPI?.saveSettings(form)
+    await window.mayormonoAPI?.saveSettings(form)
     setSettings(form)
     setShowOnboarding(false)
   }
 
   const saveSettings = async (s) => {
-    await window.pacoAPI?.saveSettings(s)
+    await window.mayormonoAPI?.saveSettings(s)
     setSettings(s)
     setShowSettings(false)
   }
@@ -348,14 +350,20 @@ export default function App() {
             <button className="icon-btn" onClick={() => setShowSettings(true)} title="Configuración">
               <GearIcon />
             </button>
-            <div className="avatar">{settings.userName?.[0] || 'J'}{settings.userName?.split(' ')[1]?.[0] || 'D'}</div>
+            <div className="avatar">{(() => {
+              const name = m365User?.displayName || settings.userName || ''
+              const parts = name.includes(',')
+                ? name.split(',').map(s => s.trim()).reverse()
+                : name.split(' ')
+              return (parts[0]?.[0] || 'M') + (parts[1]?.[0] || '')
+            })()}</div>
           </div>
         </div>
 
         {!hasMessages && (
           <div className="welcome">
-            <div className="paco-icon-wrap">
-              <PacoLogo />
+            <div className="mm-icon-wrap">
+              <MayormonoLogo />
             </div>
             <p className="welcome-name">Hola, {settings.userName?.split(' ')[0] || 'Javier'} 👋</p>
             <h1 className="welcome-title">¿En qué puedo ayudarte?</h1>
@@ -389,9 +397,9 @@ export default function App() {
         {toolStatus && <ToolBadge name={toolStatus} />}
 
         {streamText && (
-          <div className="msg-row msg-paco">
+          <div className="msg-row msg-mm">
             <div className="msg-avatar">M</div>
-            <div className="msg-bubble bubble-paco bubble-streaming">
+            <div className="msg-bubble bubble-mm bubble-streaming">
               <div className="msg-text msg-markdown" dangerouslySetInnerHTML={{ __html: marked.parse(streamText) }} />
               <span className="cursor-blink">▋</span>
             </div>
@@ -399,9 +407,9 @@ export default function App() {
         )}
 
         {isLoading && !streamText && !toolStatus && (
-          <div className="msg-row msg-paco">
+          <div className="msg-row msg-mm">
             <div className="msg-avatar">M</div>
-            <div className="msg-bubble bubble-paco">
+            <div className="msg-bubble bubble-mm">
               <span className="thinking-dots">
                 <span />
                 <span />

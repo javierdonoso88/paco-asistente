@@ -8,6 +8,11 @@ const Anthropic = require('@anthropic-ai/sdk')
 
 const isDev = process.env.NODE_ENV === 'development'
 
+function getBundledBin(name) {
+  if (isDev) return name
+  return path.join(process.resourcesPath, 'bin', name)
+}
+
 // ─── MCP Client ───────────────────────────────────────────────────────────────
 
 class MCPClient extends EventEmitter {
@@ -168,7 +173,7 @@ async function initMCP() {
   if (mcpClient) { mcpClient.disconnect(); mcpClient = null }
   try {
     mcpClient = new MCPClient()
-    const tools = await mcpClient.connect('microsoft-365-mcp')
+    const tools = await mcpClient.connect(getBundledBin('microsoft-365-mcp'))
     mcpTools = tools
     console.log(`[MCP] Connected — ${tools.length} tools`)
     mainWindow?.webContents.send('paco:tools-updated', tools.map((t) => t.name))
@@ -265,7 +270,7 @@ ipcMain.handle('paco:auth-m365', () => {
       '/bin'
     ].join(':')
 
-    const proc = spawn('microsoft-365-mcp-auth', [], {
+    const proc = spawn(getBundledBin('microsoft-365-mcp-auth'), [], {
       env: { ...process.env, PATH: `${extraPaths}:${process.env.PATH || ''}` },
       stdio: 'pipe'
     })

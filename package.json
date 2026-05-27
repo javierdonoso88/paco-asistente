@@ -36,7 +36,13 @@
       "out/**",
       "package.json"
     ],
-    "extraResources": [],
+    "extraResources": [
+      {
+        "from": "resources/bin",
+        "to": "bin",
+        "filter": ["**/*"]
+      }
+    ],
     "asar": true
   },
   "devDependencies": {

@@ -209,6 +209,13 @@ function createWindow() {
     shell.openExternal(url)
     return { action: 'deny' }
   })
+
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (!url.startsWith('http://localhost')) {
+      event.preventDefault()
+      shell.openExternal(url)
+    }
+  })
 }
 
 // ─── Lifecycle ───────────────────────────────────────────────────────────────

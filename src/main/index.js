@@ -173,7 +173,6 @@ function initAnthropic(settings) {
 // ─── History trimmer ─────────────────────────────────────────────────────────
 
 function trimHistory(messages) {
-  // Keep last 10 user/assistant pairs; replace old tool results with a summary
   const MAX_PAIRS = 10
   const pairs = []
   for (let i = 0; i < messages.length; i++) {
@@ -182,8 +181,9 @@ function trimHistory(messages) {
     }
   }
   if (pairs.length <= MAX_PAIRS) return messages
-  const cutoff = pairs[pairs.length - MAX_PAIRS]
-  return messages.slice(cutoff)
+  // Find cutoff at a clean turn boundary (user text message, not tool_result)
+  const cutoffIdx = pairs[pairs.length - MAX_PAIRS]
+  return messages.slice(cutoffIdx)
 }
 
 // ─── MCP init ────────────────────────────────────────────────────────────────
@@ -335,10 +335,35 @@ ipcMain.handle('mm:send-message', async (_event, text) => {
 
   const systemPrompt = `Eres Mayormono, el asistente personal de ${settings.userName || 'Javier'}. \
 Eres amigable, eficiente y siempre hablas en español. \
-Tienes acceso a las herramientas de Microsoft 365: calendario de Outlook, correos, tareas, chats de Teams y más. \
-Cuando el usuario pregunte sobre su trabajo o agenda, usa las herramientas disponibles para obtener información real y actualizada. \
-Sé conciso y directo. Usa emojis cuando sea apropiado para hacer la conversación más amena. \
-IMPORTANTE: Cuando menciones un elemento concreto (email, evento, reunión, tarea, chat de Teams), incluye siempre un enlace markdown con su URL directa usando el campo webLink, webUrl o joinUrl que devuelve la herramienta. Formato: [Abrir en Outlook](url) o [Abrir en Teams](url). Esto permite al usuario acceder directamente al elemento con un clic. \
+Tienes acceso a las herramientas de Microsoft 365. Úsalas siempre que el usuario pregunte sobre su agenda, correos, tareas o Teams. \
+Sé conciso y directo. Usa emojis cuando sea apropiado.
+
+REGLAS DE USO DE HERRAMIENTAS:
+
+Calendario (outlook_list_events, outlook_get_event):
+- Usa format='markdown' en outlook_list_events para respuestas compactas.
+- Los eventos incluyen un enlace directo en el resultado; inclúyelo siempre: [Ver evento](url).
+- Para fechas usa formato YYYY-MM-DD.
+
+Correo (outlook_list_messages, outlook_get_message):
+- outlook_list_messages NO devuelve URL de cada email. Si el usuario quiere abrir un email, llama a outlook_get_message con su id para obtener la webLink.
+- Muestra remitente, asunto y fecha. Para el cuerpo completo usa outlook_get_message.
+
+Tareas (outlook_list_task_lists, outlook_list_tasks):
+- Llama primero a outlook_list_task_lists para obtener el listId, luego outlook_list_tasks con ese listId.
+- Las tareas de Microsoft To-Do NO tienen URL directa; no inventes enlaces.
+
+Teams (teams_list_chats, teams_get_chat, teams_list_messages, teams_search_messages):
+- Usa format='markdown' en teams_list_chats. Para obtener la webUrl de un chat usa teams_get_chat con el chatId.
+- Enlaza con [Abrir en Teams](webUrl) cuando tengas la URL.
+
+OneDrive (onedrive_list_files, onedrive_search, onedrive_recent_files, onedrive_get_file_content):
+- Los archivos incluyen webUrl; enlaza con [Abrir archivo](webUrl).
+
+Contactos (contacts_list, contacts_search):
+- No tienen URL directa; muestra nombre, email y empresa.
+
+IMPORTANTE: Nunca inventes URLs. Solo incluye enlaces cuando la herramienta los devuelva explícitamente.
 Fecha y hora actual: ${new Date().toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })}.`
 
   let workingMessages = [...conversationHistory]
@@ -382,11 +407,16 @@ Fecha y hora actual: ${new Date().toLocaleString('es-ES', { timeZone: 'Europe/Ma
       for (const toolUse of toolUseBlocks) {
         mainWindow.webContents.send('mm:stream-tool-use', { type: 'calling', name: toolUse.name })
         try {
-          const result = await mcpClient.callTool(toolUse.name, toolUse.input)
+          const safeArgs = { ...toolUse.input }
+          const markdownTools = ['teams_list_chats', 'outlook_list_events', 'outlook_list_messages', 'teams_list_channels']
+          if (markdownTools.includes(toolUse.name) && !safeArgs.format) {
+            safeArgs.format = 'markdown'
+          }
+          const result = await mcpClient.callTool(toolUse.name, safeArgs)
           let resultText = Array.isArray(result.content)
             ? result.content.map((c) => c.text || JSON.stringify(c)).join('\n')
             : JSON.stringify(result)
-          const MAX_TOOL_CHARS = 8000
+          const MAX_TOOL_CHARS = toolUse.name === 'teams_list_chats' ? 4000 : 12000
           if (resultText.length > MAX_TOOL_CHARS) {
             resultText = resultText.slice(0, MAX_TOOL_CHARS) + '\n\n[Resultado truncado por longitud]'
           }

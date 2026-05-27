@@ -136,13 +136,14 @@ function getSettingsPath() {
 function loadSettings() {
   try {
     const p = getSettingsPath()
-    if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, 'utf8'))
+    if (fs.existsSync(p)) return { ...JSON.parse(fs.readFileSync(p, 'utf8')), firstRun: false }
   } catch (_) {}
   return {
-    apiKey: 'a0785e08-9809-4db7-8621-c46c6a483e18',
+    apiKey: '',
     baseURL: 'http://localhost:6655/anthropic',
     model: 'claude-sonnet-4-5',
-    userName: 'Javier'
+    userName: '',
+    firstRun: true
   }
 }
 

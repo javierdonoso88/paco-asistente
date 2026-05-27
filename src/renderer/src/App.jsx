@@ -81,6 +81,89 @@ function ToolBadge({ name }) {
   )
 }
 
+// ─── Onboarding ───────────────────────────────────────────────────────────────
+
+function Onboarding({ onComplete }) {
+  const [step, setStep] = useState(0)
+  const [form, setForm] = useState({
+    userName: '',
+    apiKey: '',
+    baseURL: 'http://localhost:6655/anthropic',
+    model: 'claude-sonnet-4-5'
+  })
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
+
+  const canContinue = step === 0 ? form.userName.trim() : form.apiKey.trim()
+
+  const next = () => {
+    if (step === 0) { setStep(1); return }
+    onComplete(form)
+  }
+
+  return (
+    <div className="onboarding">
+      <div className="onboarding-card">
+        <div className="onboarding-logo"><PacoLogo /></div>
+        <h1 className="onboarding-title">Bienvenido a Mayormono</h1>
+
+        {step === 0 && (
+          <>
+            <p className="onboarding-sub">Tu asistente personal con acceso a Microsoft 365.<br />Primero, ¿cómo te llamo?</p>
+            <input
+              className="onboarding-input"
+              placeholder="Tu nombre"
+              value={form.userName}
+              onChange={set('userName')}
+              onKeyDown={(e) => e.key === 'Enter' && canContinue && next()}
+              autoFocus
+            />
+          </>
+        )}
+
+        {step === 1 && (
+          <>
+            <p className="onboarding-sub">Ahora necesito una API Key para conectar con la IA.</p>
+            <input
+              className="onboarding-input"
+              type="password"
+              placeholder="API Key"
+              value={form.apiKey}
+              onChange={set('apiKey')}
+              onKeyDown={(e) => e.key === 'Enter' && canContinue && next()}
+              autoFocus
+            />
+            <button className="onboarding-advanced-toggle" onClick={() => setShowAdvanced(v => !v)}>
+              {showAdvanced ? '▾' : '▸'} Opciones avanzadas
+            </button>
+            {showAdvanced && (
+              <div className="onboarding-advanced">
+                <label className="field">
+                  <span>Base URL</span>
+                  <input value={form.baseURL} onChange={set('baseURL')} />
+                </label>
+                <label className="field">
+                  <span>Modelo</span>
+                  <input value={form.model} onChange={set('model')} />
+                </label>
+              </div>
+            )}
+          </>
+        )}
+
+        <div className="onboarding-dots">
+          <span className={step === 0 ? 'dot dot-active' : 'dot'} />
+          <span className={step === 1 ? 'dot dot-active' : 'dot'} />
+        </div>
+
+        <button className="onboarding-btn" disabled={!canContinue} onClick={next}>
+          {step === 0 ? 'Continuar' : 'Empezar'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Settings modal ───────────────────────────────────────────────────────────
 
 function SettingsModal({ settings, onSave, onClose }) {
@@ -141,8 +224,9 @@ export default function App() {
   const [messages, setMessages] = useState([])
   const [inputText, setInputText] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [settings, setSettings] = useState({ userName: 'Javier', model: 'claude-sonnet-4-5' })
+  const [settings, setSettings] = useState({ userName: '', model: 'claude-sonnet-4-5' })
   const [showSettings, setShowSettings] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(false)
   const [tools, setTools] = useState([])
   const [streamText, setStreamText] = useState('')
   const [toolStatus, setToolStatus] = useState('')
@@ -156,7 +240,8 @@ export default function App() {
 
     window.pacoAPI.getSettings().then((s) => {
       setSettings(s)
-      if (!s.apiKey) setShowSettings(true)
+      if (s.firstRun) setShowOnboarding(true)
+      else if (!s.apiKey) setShowSettings(true)
     })
     window.pacoAPI.getTools().then(setTools)
 
@@ -221,6 +306,12 @@ export default function App() {
     setStreamText('')
   }
 
+  const completeOnboarding = async (form) => {
+    await window.pacoAPI?.saveSettings(form)
+    setSettings(form)
+    setShowOnboarding(false)
+  }
+
   const saveSettings = async (s) => {
     await window.pacoAPI?.saveSettings(s)
     setSettings(s)
@@ -231,6 +322,8 @@ export default function App() {
 
   return (
     <div className="app">
+      {showOnboarding && <Onboarding onComplete={completeOnboarding} />}
+
       {showSettings && (
         <SettingsModal settings={settings} onSave={saveSettings} onClose={() => setShowSettings(false)} />
       )}

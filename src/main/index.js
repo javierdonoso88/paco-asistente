@@ -141,7 +141,10 @@ function getSettingsPath() {
 function loadSettings() {
   try {
     const p = getSettingsPath()
-    if (fs.existsSync(p)) return { ...JSON.parse(fs.readFileSync(p, 'utf8')), firstRun: false }
+    if (fs.existsSync(p)) {
+      const saved = JSON.parse(fs.readFileSync(p, 'utf8'))
+      return { ...saved, firstRun: !saved.userName || !saved.apiKey || !saved.m365Configured }
+    }
   } catch (_) {}
   return {
     apiKey: '',

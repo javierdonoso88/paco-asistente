@@ -101,7 +101,7 @@ function Onboarding({ onComplete }) {
 
   const next = async () => {
     if (step < 2) { setStep(step + 1); return }
-    onComplete(form)
+    onComplete({ ...form, m365Configured: true })
   }
 
   const handleAuth = async () => {
@@ -184,8 +184,8 @@ function SettingsModal({ settings, onSave, onClose }) {
   const [form, setForm] = useState({
     userName: settings.userName || 'Javier',
     apiKey: settings.apiKey || '',
-    baseURL: settings.baseURL || 'http://localhost:6655/anthropic',
-    model: settings.model || 'claude-sonnet-4-5'
+    baseURL: 'http://localhost:6655/anthropic',
+    model: 'claude-sonnet-4-5'
   })
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
@@ -205,14 +205,6 @@ function SettingsModal({ settings, onSave, onClose }) {
           <label className="field">
             <span>API Key</span>
             <input type="password" value={form.apiKey} onChange={set('apiKey')} placeholder="sk-ant-… o token local" />
-          </label>
-          <label className="field">
-            <span>Base URL</span>
-            <input value={form.baseURL} onChange={set('baseURL')} placeholder="http://localhost:6655/anthropic" />
-          </label>
-          <label className="field">
-            <span>Modelo</span>
-            <input value={form.model} onChange={set('model')} placeholder="claude-sonnet-4-5" />
           </label>
         </div>
         <div className="modal-footer">

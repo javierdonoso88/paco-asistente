@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { marked } from 'marked'
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -57,11 +58,14 @@ function TrashIcon() {
 
 function Message({ msg }) {
   const isUser = msg.role === 'user'
+  const html = isUser ? null : marked.parse(msg.content || '')
   return (
     <div className={`msg-row ${isUser ? 'msg-user' : 'msg-paco'}`}>
       {!isUser && <div className="msg-avatar">P</div>}
       <div className={`msg-bubble ${isUser ? 'bubble-user' : 'bubble-paco'} ${msg.isError ? 'bubble-error' : ''}`}>
-        <span className="msg-text">{msg.content}</span>
+        {isUser
+          ? <span className="msg-text">{msg.content}</span>
+          : <div className="msg-text msg-markdown" dangerouslySetInnerHTML={{ __html: html }} />}
       </div>
     </div>
   )
@@ -289,7 +293,7 @@ export default function App() {
           <div className="msg-row msg-paco">
             <div className="msg-avatar">P</div>
             <div className="msg-bubble bubble-paco bubble-streaming">
-              <span className="msg-text">{streamText}</span>
+              <div className="msg-text msg-markdown" dangerouslySetInnerHTML={{ __html: marked.parse(streamText) }} />
               <span className="cursor-blink">▋</span>
             </div>
           </div>

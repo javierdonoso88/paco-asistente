@@ -200,6 +200,7 @@ function createWindow() {
 
   if (isDev) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    mainWindow.webContents.openDevTools({ mode: 'detach' })
   } else {
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
   }

@@ -47,6 +47,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.40.0",
+    "marked": "^18.0.4",
     "react": "^18.3.0",
     "react-dom": "^18.3.0"
   }

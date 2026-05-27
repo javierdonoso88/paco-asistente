@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('pacoAPI', {
   saveSettings: (s) => ipcRenderer.invoke('paco:save-settings', s),
   clearChat: () => ipcRenderer.invoke('paco:clear-chat'),
   getTools: () => ipcRenderer.invoke('paco:get-tools'),
+  authM365: () => ipcRenderer.invoke('paco:auth-m365'),
 
   onStreamChunk: (cb) => ipcRenderer.on('paco:stream-chunk', (_, d) => cb(d)),
   onStreamToolUse: (cb) => ipcRenderer.on('paco:stream-tool-use', (_, d) => cb(d)),

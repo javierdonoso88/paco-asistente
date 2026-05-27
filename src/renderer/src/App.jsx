@@ -91,13 +91,23 @@ function Onboarding({ onComplete }) {
     baseURL: 'http://localhost:6655/anthropic',
     model: 'claude-sonnet-4-5'
   })
+  const [authState, setAuthState] = useState('idle') // idle | loading | done | error
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
 
-  const canContinue = step === 0 ? form.userName.trim() : form.apiKey.trim()
+  const canContinue =
+    step === 0 ? form.userName.trim() :
+    step === 1 ? form.apiKey.trim() :
+    authState === 'done'
 
-  const next = () => {
-    if (step === 0) { setStep(1); return }
+  const next = async () => {
+    if (step < 2) { setStep(step + 1); return }
     onComplete(form)
+  }
+
+  const handleAuth = async () => {
+    setAuthState('loading')
+    const result = await window.pacoAPI?.authM365()
+    setAuthState(result?.ok ? 'done' : 'error')
   }
 
   return (
@@ -135,13 +145,33 @@ function Onboarding({ onComplete }) {
           </>
         )}
 
+        {step === 2 && (
+          <>
+            <p className="onboarding-sub">Por último, conecta tu cuenta de Microsoft 365.<br />Se abrirá el navegador para autenticarte.</p>
+            <button
+              className={`m365-auth-btn ${authState}`}
+              onClick={handleAuth}
+              disabled={authState === 'loading' || authState === 'done'}
+            >
+              {authState === 'idle' && '🔑 Conectar Microsoft 365'}
+              {authState === 'loading' && <><span className="thinking-dots"><span /><span /><span /></span>&nbsp;Autenticando…</>}
+              {authState === 'done' && '✓ Microsoft 365 conectado'}
+              {authState === 'error' && '⚠️ Reintentar'}
+            </button>
+            {authState === 'error' && (
+              <p className="onboarding-auth-error">No se pudo autenticar. Asegúrate de tener instalado microsoft-365-mcp.</p>
+            )}
+          </>
+        )}
+
         <div className="onboarding-dots">
           <span className={step === 0 ? 'dot dot-active' : 'dot'} />
           <span className={step === 1 ? 'dot dot-active' : 'dot'} />
+          <span className={step === 2 ? 'dot dot-active' : 'dot'} />
         </div>
 
         <button className="onboarding-btn" disabled={!canContinue} onClick={next}>
-          {step === 0 ? 'Continuar' : 'Empezar'}
+          {step < 2 ? 'Continuar' : 'Empezar'}
         </button>
       </div>
     </div>

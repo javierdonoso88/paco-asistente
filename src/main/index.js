@@ -254,6 +254,27 @@ ipcMain.handle('paco:clear-chat', () => {
 
 ipcMain.handle('paco:get-tools', () => mcpTools.map((t) => t.name))
 
+ipcMain.handle('paco:auth-m365', () => {
+  return new Promise((resolve) => {
+    const homedir = os.homedir()
+    const extraPaths = [
+      path.join(homedir, '.local', 'bin'),
+      '/opt/homebrew/bin',
+      '/usr/local/bin',
+      '/usr/bin',
+      '/bin'
+    ].join(':')
+
+    const proc = spawn('microsoft-365-mcp-auth', [], {
+      env: { ...process.env, PATH: `${extraPaths}:${process.env.PATH || ''}` },
+      stdio: 'pipe'
+    })
+
+    proc.on('close', (code) => resolve({ ok: code === 0, code }))
+    proc.on('error', (e) => resolve({ ok: false, error: e.message }))
+  })
+})
+
 ipcMain.handle('paco:send-message', async (_event, text) => {
   if (!anthropicClient) {
     mainWindow.webContents.send(

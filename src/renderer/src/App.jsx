@@ -384,7 +384,7 @@ export default function App() {
 
         {streamText && (
           <div className="msg-row msg-paco">
-            <div className="msg-avatar">P</div>
+            <div className="msg-avatar">M</div>
             <div className="msg-bubble bubble-paco bubble-streaming">
               <div className="msg-text msg-markdown" dangerouslySetInnerHTML={{ __html: marked.parse(streamText) }} />
               <span className="cursor-blink">▋</span>
@@ -394,7 +394,7 @@ export default function App() {
 
         {isLoading && !streamText && !toolStatus && (
           <div className="msg-row msg-paco">
-            <div className="msg-avatar">P</div>
+            <div className="msg-avatar">M</div>
             <div className="msg-bubble bubble-paco">
               <span className="thinking-dots">
                 <span />

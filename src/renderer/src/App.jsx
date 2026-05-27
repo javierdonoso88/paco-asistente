@@ -61,7 +61,7 @@ function Message({ msg }) {
   const html = isUser ? null : marked.parse(msg.content || '')
   return (
     <div className={`msg-row ${isUser ? 'msg-user' : 'msg-paco'}`}>
-      {!isUser && <div className="msg-avatar">P</div>}
+      {!isUser && <div className="msg-avatar">M</div>}
       <div className={`msg-bubble ${isUser ? 'bubble-user' : 'bubble-paco'} ${msg.isError ? 'bubble-error' : ''}`}>
         {isUser
           ? <span className="msg-text">{msg.content}</span>
@@ -239,7 +239,7 @@ export default function App() {
       <div className={`header ${hasMessages ? 'header-compact' : ''}`}>
         <div className="topbar">
           <div className="topbar-spacer" /> {/* traffic lights space */}
-          <span className="app-title">Paco el Asistente</span>
+          <span className="app-title">el mayormono</span>
           <div className="topbar-actions">
             {hasMessages && (
               <button className="icon-btn" onClick={clearChat} title="Nueva conversación">
@@ -321,7 +321,7 @@ export default function App() {
           <textarea
             ref={inputRef}
             className="chat-input"
-            placeholder="Escríbele a Paco…"
+            placeholder="Escríbele al mayormono…"
             value={inputText}
             rows={1}
             disabled={isLoading}
@@ -341,7 +341,7 @@ export default function App() {
             <SendIcon />
           </button>
         </div>
-        <p className="disclaimer">Paco usa IA. Verifica los resultados.</p>
+        <p className="disclaimer">el mayormono usa IA. Verifica los resultados.</p>
       </div>
     </div>
   )

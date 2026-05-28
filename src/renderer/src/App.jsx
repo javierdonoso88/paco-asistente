@@ -197,7 +197,9 @@ function SettingsModal({ settings, onSave, onClose }) {
     userName: settings.userName || '',
     apiKey: settings.apiKey || '',
     baseURL: settings.baseURL || 'http://localhost:6655/anthropic',
-    model: settings.model || 'claude-sonnet-4-5'
+    model: settings.model || 'claude-sonnet-4-5',
+    whisperApiKey: settings.whisperApiKey || '',
+    whisperBaseURL: settings.whisperBaseURL || ''
   })
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
@@ -215,8 +217,16 @@ function SettingsModal({ settings, onSave, onClose }) {
             <input value={form.userName} onChange={set('userName')} placeholder="Javier" />
           </label>
           <label className="field">
-            <span>API Key</span>
+            <span>API Key (Claude)</span>
             <input type="password" value={form.apiKey} onChange={set('apiKey')} placeholder="sk-ant-… o token local" />
+          </label>
+          <label className="field">
+            <span>Whisper API Key (micrófono)</span>
+            <input type="password" value={form.whisperApiKey} onChange={set('whisperApiKey')} placeholder="OpenAI sk-… o Groq gsk-…" />
+          </label>
+          <label className="field">
+            <span>Whisper endpoint (opcional)</span>
+            <input value={form.whisperBaseURL} onChange={set('whisperBaseURL')} placeholder="https://api.groq.com/openai (Groq)" />
           </label>
         </div>
         <div className="modal-footer">
@@ -254,11 +264,11 @@ export default function App() {
 
   const bottomRef = useRef(null)
   const streamRef = useRef('')
-  const recognitionRef = useRef(null)
   const sendMessageRef = useRef(null)
-  const voiceTranscriptRef = useRef('')
+  const mediaRecorderRef = useRef(null)
+  const audioChunksRef = useRef([])
 
-  const [isListening, setIsListening] = useState(false)
+  const [voiceState, setVoiceState] = useState('idle') // 'idle' | 'recording' | 'processing'
 
   useEffect(() => {
     if (!window.mayormonoAPI) return
@@ -341,47 +351,47 @@ export default function App() {
 
   useEffect(() => { sendMessageRef.current = sendMessage }, [sendMessage])
 
-  const toggleVoice = useCallback(() => {
-    if (isListening) {
-      recognitionRef.current?.stop()
-      // onend will fire and auto-send whatever was captured
+  const toggleVoice = useCallback(async () => {
+    if (voiceState === 'recording') {
+      mediaRecorderRef.current?.stop()
       return
     }
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!SR) return
-    voiceTranscriptRef.current = ''
-    const r = new SR()
-    r.lang = 'es-ES'
-    r.continuous = true
-    r.interimResults = true
-    r.onstart = () => setIsListening(true)
-    r.onresult = (e) => {
-      let transcript = ''
-      for (const result of e.results) {
-        transcript += result[0].transcript
+    if (voiceState === 'processing') return
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      audioChunksRef.current = []
+      const recorder = new MediaRecorder(stream)
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data) }
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop())
+        setVoiceState('processing')
+        const blob = new Blob(audioChunksRef.current, { type: audioChunksRef.current[0]?.type || 'audio/webm' })
+        const base64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onloadend = () => resolve(reader.result.split(',')[1])
+          reader.onerror = reject
+          reader.readAsDataURL(blob)
+        })
+        const result = await window.mayormonoAPI?.transcribe({ audioBase64: base64, mimeType: blob.type })
+        setVoiceState('idle')
+        if (result?.error === 'no-key') {
+          alert('Añade una Whisper API Key en Configuración para usar el micrófono.\nPuedes usar OpenAI o Groq (gratuito en groq.com).')
+        } else if (result?.error) {
+          alert(`Error al transcribir: ${result.error}`)
+        } else if (result?.transcript?.trim()) {
+          sendMessageRef.current?.(result.transcript.trim())
+        }
       }
-      voiceTranscriptRef.current = transcript
-      setInputText(transcript)
-    }
-    r.onerror = (e) => {
-      setIsListening(false)
-      voiceTranscriptRef.current = ''
-      if (e.error === 'not-allowed') {
-        alert('Sin acceso al micrófono.\n\nVe a Ajustes del Sistema → Privacidad y Seguridad → Micrófono y activa Mayormono.')
-      } else if (e.error === 'network') {
-        alert('Error de red en el reconocimiento de voz. Comprueba tu conexión a internet.')
+      recorder.start()
+      mediaRecorderRef.current = recorder
+      setVoiceState('recording')
+    } catch (e) {
+      setVoiceState('idle')
+      if (e.name === 'NotAllowedError') {
+        alert('Sin acceso al micrófono.\nVe a Ajustes del Sistema → Privacidad y Seguridad → Micrófono y activa Mayormono.')
       }
-      console.error('[Voice] error:', e.error)
     }
-    r.onend = () => {
-      setIsListening(false)
-      const text = voiceTranscriptRef.current.trim()
-      voiceTranscriptRef.current = ''
-      if (text) sendMessageRef.current?.(text)
-    }
-    recognitionRef.current = r
-    r.start()
-  }, [isListening])
+  }, [voiceState])
 
   const clearChat = async () => {
     await window.mayormonoAPI?.clearChat()
@@ -513,7 +523,7 @@ export default function App() {
         <div className="input-wrap">
           <textarea
             className="chat-input"
-            placeholder={isListening ? 'Escuchando…' : 'Escríbele a Mayormono…'}
+            placeholder={voiceState === 'recording' ? 'Escuchando…' : voiceState === 'processing' ? 'Procesando…' : 'Escríbele a Mayormono…'}
             value={inputText}
             rows={1}
             disabled={isLoading}
@@ -526,10 +536,10 @@ export default function App() {
             }}
           />
           <button
-            className={`mic-btn${isListening ? ' listening' : ''}`}
-            disabled={isLoading}
+            className={`mic-btn${voiceState === 'recording' ? ' listening' : ''}`}
+            disabled={isLoading || voiceState === 'processing'}
             onClick={toggleVoice}
-            title={isListening ? 'Detener grabación' : 'Hablar'}
+            title={voiceState === 'recording' ? 'Detener grabación' : 'Hablar'}
           >
             <MicIcon />
           </button>

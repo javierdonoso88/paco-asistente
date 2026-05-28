@@ -294,6 +294,31 @@ ipcMain.handle('mm:clear-chat', () => {
 
 ipcMain.handle('mm:get-tools', () => mcpTools.map((t) => t.name))
 
+ipcMain.handle('mm:transcribe', async (_, { audioBase64, mimeType }) => {
+  const settings = loadSettings()
+  const apiKey = settings.whisperApiKey
+  if (!apiKey) return { error: 'no-key' }
+  const baseURL = (settings.whisperBaseURL || 'https://api.openai.com').replace(/\/$/, '')
+  try {
+    const audioBuffer = Buffer.from(audioBase64, 'base64')
+    const fd = new FormData()
+    fd.append('file', new Blob([audioBuffer], { type: mimeType || 'audio/webm' }), 'audio.webm')
+    const model = baseURL.includes('groq') ? 'whisper-large-v3-turbo' : 'whisper-1'
+    fd.append('model', model)
+    fd.append('language', 'es')
+    const resp = await fetch(`${baseURL}/v1/audio/transcriptions`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: fd
+    })
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${await resp.text()}`)
+    const data = await resp.json()
+    return { transcript: data.text }
+  } catch (e) {
+    return { error: e.message }
+  }
+})
+
 ipcMain.handle('mm:auth-m365', () => {
   return new Promise((resolve) => {
     const homedir = os.homedir()

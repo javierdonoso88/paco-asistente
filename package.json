@@ -9,7 +9,7 @@
     "dev": "ELECTRON_RUN_AS_NODE= electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "dist": "npm run build && ELECTRON_RUN_AS_NODE= electron-builder --mac dmg"
+    "dist": "npm run build && ELECTRON_RUN_AS_NODE= electron-builder --mac dmg --config.directories.output=/private/tmp/mm-release && cp /private/tmp/mm-release/*.dmg release/ && cp /private/tmp/mm-release/latest-mac.yml release/"
   },
   "build": {
     "appId": "com.javierdonoso.mayormono",

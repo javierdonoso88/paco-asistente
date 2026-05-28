@@ -18,19 +18,18 @@
     "directories": {
       "output": "release"
     },
+    "afterPack": "./build/afterPack.js",
     "mac": {
       "category": "public.app-category.productivity",
       "target": [
         {
           "target": "dmg",
-          "arch": [
-            "arm64",
-            "x64"
-          ]
+          "arch": ["arm64", "x64"]
         }
       ],
       "darkModeSupport": true,
-      "icon": "resources/icon.icns"
+      "icon": "resources/icon.icns",
+      "identity": null
     },
     "files": [
       "out/**",

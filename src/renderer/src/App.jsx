@@ -256,6 +256,7 @@ export default function App() {
   const streamRef = useRef('')
   const recognitionRef = useRef(null)
   const sendMessageRef = useRef(null)
+  const voiceTranscriptRef = useRef('')
 
   const [isListening, setIsListening] = useState(false)
 
@@ -343,30 +344,32 @@ export default function App() {
   const toggleVoice = useCallback(() => {
     if (isListening) {
       recognitionRef.current?.stop()
-      setIsListening(false)
+      // onend will fire and auto-send whatever was captured
       return
     }
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition
     if (!SR) return
+    voiceTranscriptRef.current = ''
     const r = new SR()
     r.lang = 'es-ES'
-    r.continuous = false
+    r.continuous = true
     r.interimResults = true
     r.onstart = () => setIsListening(true)
     r.onresult = (e) => {
-      let interim = '', final = ''
+      let transcript = ''
       for (const result of e.results) {
-        if (result.isFinal) final += result[0].transcript
-        else interim += result[0].transcript
+        transcript += result[0].transcript
       }
-      setInputText(final || interim)
-      if (final) {
-        setIsListening(false)
-        sendMessageRef.current?.(final.trim())
-      }
+      voiceTranscriptRef.current = transcript
+      setInputText(transcript)
     }
-    r.onerror = () => { setIsListening(false); setInputText('') }
-    r.onend = () => setIsListening(false)
+    r.onerror = () => { setIsListening(false); setInputText(''); voiceTranscriptRef.current = '' }
+    r.onend = () => {
+      setIsListening(false)
+      const text = voiceTranscriptRef.current.trim()
+      voiceTranscriptRef.current = ''
+      if (text) sendMessageRef.current?.(text)
+    }
     recognitionRef.current = r
     r.start()
   }, [isListening])
